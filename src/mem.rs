@@ -12,15 +12,6 @@ pub fn page_size() -> usize {
     *PAGE_SIZE.get_or_init(|| unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize })
 }
 
-#[inline]
-pub(crate) fn round_to_page(value: usize) -> usize {
-    let size = page_size();
-    value.checked_add(size).map_or_else(
-        || panic!("ptr overflow"),
-        |offset| (offset - 1) & !(size - 1),
-    )
-}
-
 pub(crate) fn alloc(len: usize) -> Result<*mut u8, io::Error> {
     assert_ne!(len, 0, "cannot allocate with a length of 0");
     // SAFETY: len is not 0, other parameters are valid
@@ -63,7 +54,7 @@ pub(crate) unsafe fn mprotect(ptr: *mut u8, len: usize, prot: c_int) -> Result<(
 
 pub(crate) fn mlock(ptr: *const u8, len: usize) -> Result<(), io::Error> {
     // SAFETY: Locking memory in itself doesn't appear to be unsafe
-    match unsafe { libc::mlock(ptr.cast(), round_to_page(len)) } {
+    match unsafe { libc::mlock(ptr.cast(), len) } {
         0_i32 => Ok(()),
         _ => Err(io::Error::last_os_error()),
     }
