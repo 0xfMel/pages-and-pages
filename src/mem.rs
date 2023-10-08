@@ -3,7 +3,9 @@ use std::{io, ptr, sync::OnceLock};
 use libc::c_int;
 
 #[inline]
-pub(crate) fn page_size() -> usize {
+/// Gets the current OS page-size.
+/// Caches value so only makes syscall once.
+pub fn page_size() -> usize {
     static PAGE_SIZE: OnceLock<usize> = OnceLock::new();
     #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     // SAFETY: syscall for page_size
@@ -38,7 +40,7 @@ pub(crate) fn alloc(len: usize) -> Result<*mut u8, io::Error> {
 }
 
 /// # SAFETY
-/// Caller must ensure this entire block was allocated with `mem::alloc`
+/// Caller must ensure this entire block was allocated with [`mem::alloc`]
 pub(crate) unsafe fn dealloc(ptr: *mut u8, len: usize) -> Result<(), io::Error> {
     assert_ne!(len, 0, "cannot deallocate with a length of 0");
     // SAFETY:

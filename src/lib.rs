@@ -120,6 +120,11 @@ use std::{
 
 use error::{IntoPagesError, JoinError, JoinErrorKind};
 
+/// Provides methods for pages, currently just [`page::size`]
+pub mod page {
+    pub use crate::mem::page_size as size;
+}
+
 mod mem;
 
 /// Error types
@@ -171,16 +176,16 @@ pub enum Accessibility {
 
 #[allow(clippy::exhaustive_enums)]
 #[derive(Debug)]
-/// Represents the type of pages object.  Contains either `MutPages`, `Pages`, or
-/// `InaccessiblePages`.  Corresponds to the `Accessibility` of the pages.
+/// Represents the type of pages object.  Contains either [`MutPages`], [`Pages`], or
+/// [`InaccessiblePages`].  Corresponds to the [`Accessibility`] of the pages.
 pub enum PagesType {
-    /// This `PagesType` contains a `MutPages` object.
+    /// This [`PagesType`] contains a [`MutPages`] object.
     Mutable(MutPages),
 
-    /// This `PagesType` contains an immutable `Pages` object.
+    /// This [`PagesType`] contains an immutable [`Pages`] object.
     Immutable(Pages),
 
-    /// This `PagesType` contains an `InaccessiblePages` object.
+    /// This [`PagesType`] contains an [`InaccessiblePages`] object.
     Inaccessible(InaccessiblePages),
 }
 
@@ -193,13 +198,13 @@ pub trait AnyPages: private::Sealed {
     fn start(&self) -> usize;
     /// Gets the end index of the page of the underlying allocation which this object references
     fn end(&self) -> usize;
-    /// Gets the `Accessibility` of this pages object
+    /// Gets the [`Accessibility`] of this pages object
     fn accessibility(&self) -> Accessibility;
     /// Gets this pages object as a `&dyn Any` object for reference downcasting
     fn as_any(&self) -> &dyn Any;
     /// Gets this pages object as a `&mut dyn Any` object for reference downcasting
     fn as_any_mut(&mut self) -> &mut dyn Any;
-    /// Gets this pages object as a `PagesType` enum to allow pattern matching and unwrapping on accessibility
+    /// Gets this pages object as a [`PagesType`] enum to allow pattern matching and unwrapping on accessibility
     fn into_pages_type(self) -> PagesType;
 
     /// Gets the number of pages this pages object references
@@ -207,25 +212,25 @@ pub trait AnyPages: private::Sealed {
         self.end() - self.start()
     }
 
-    /// Gets the number of bytes this pages object references.  This is implemented as `self.pages`
+    /// Gets the number of bytes this pages object references.  This is implemented as [`AnyPages::pages`]
     /// multiplied by the page size
     fn len_bytes(&self) -> usize {
         self.pages() * mem::page_size()
     }
 
-    /// Gets the underlying allocation as a `PagesAllocation` object.  This is for internal use only,
-    /// `PagesAllocation` exposes no methods or fields
+    /// Gets the underlying allocation as a [`PagesAllocation`] object.  This is for internal use only,
+    /// [`PagesAllocation`] exposes no methods or fields
     #[doc(hidden)]
     fn allocation(&self) -> private::PagesAllocation<'_>;
 }
 
 impl dyn AnyPages {
-    /// Downcasts `&dyn AnyPages` into &T: `AnyPages`
+    /// Downcasts `&dyn AnyPages` into `&T: AnyPages`
     pub fn downcast_ref<T: AnyPages + 'static>(&self) -> Option<&T> {
         self.as_any().downcast_ref()
     }
 
-    /// Downcasts `&mut dyn AnyPages` into &mut T: `AnyPages`
+    /// Downcasts `&mut dyn AnyPages` into `&mut T: AnyPages`
     pub fn downcast_mut<T: AnyPages + 'static>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut()
     }
@@ -287,7 +292,7 @@ impl Allocation {
     ///
     /// # Errors
     /// When allocation fails, instead of handling allocation error in the usual way by aborting,
-    /// it will return an `io::Error` containing the OS error
+    /// it will return an [`io::Error`] containing the OS error
     pub fn try_new(pages: usize) -> io::Result<Self> {
         assert_ne!(pages, 0, "Allocation: cannot create allocation of 0 pages");
         let ptr = mem::alloc(pages * mem::page_size())?;
@@ -317,7 +322,7 @@ impl Allocation {
     ///
     /// # Errors
     /// When freeing memory failed, instead of handling free error in the usual way by aborting,
-    /// it will return an `io::Error` containing the OS error
+    /// it will return an [`io::Error`] containing the OS error
     pub fn free(mut self) -> io::Result<()> {
         // SAFETY: Method takes ownership of Allocation so cannot be called twice, drop impl checks
         // that it hasn't already been run
@@ -368,7 +373,7 @@ macro_rules! pages {
             counter = $other_counter2:ident,
         },
     ) => {
-        /// Represents a page, or range of pages, with a given accessibility.
+        #[doc = concat!("Represents a page, or range of pages with `", stringify!($Accessibility), "` accessibility")]
         pub struct $Self {
             allocation: Arc<Allocation>,
             start: usize,
@@ -376,7 +381,7 @@ macro_rules! pages {
         }
 
         impl $Self {
-            /// Splits Pages into two consecutive pages at a given index
+            #[doc = concat!("Splits this [`", stringify!($Self), "`] into two consecutive [`", stringify!($Self), "`] at a given index")]
             ///
             /// # Errors
             /// If the index would result in one half of the split having 0 size, this will return
@@ -404,12 +409,12 @@ macro_rules! pages {
                 Ok((left, right))
             }
 
-            /// Sets whether the pages represented by this pages object is locked into memory or
-            /// not.  See mlock(2)
+            #[doc = concat!("Sets whether the pages represented by this [`", stringify!($Self), "`] is locked into memory or not.")]
+            /// See [mlock(2)](https://man.archlinux.org/man/mlock.2.en)
             ///
             /// # Errors
-            /// If the OS returns an error from the mlock or munlock syscall, it is returned as an
-            /// `io::Error`
+            /// If the OS returns an error from the `mlock` or `munlock` syscall, it is returned as an
+            /// [`io::Error`]
             pub fn set_locked(&mut self, locked: bool) -> io::Result<()> {
                 if locked {
                     mem::mlock(self.ptr(), self.len_bytes())
@@ -422,7 +427,7 @@ macro_rules! pages {
             /// updating the protection of the memory region in a single syscall if nessassary.
             ///
             /// # Errors
-            /// See `JoinErrorKind` docs.  Will return a `JoinError` containing the input `PagesType`s and a `JoinErrorKind`
+            /// See [`JoinErrorKind`] docs.  Will return a [`JoinError`] containing the input [`PagesType`]s and a [`JoinErrorKind`]
             /// containing what went wrong.
             pub fn join<const C: usize>(
                 parts: [PagesType; C],
@@ -438,10 +443,10 @@ macro_rules! pages {
 
             /// Joins two or more contiguous pages from the same allocation into a single object,
             /// updating the protection of the memory region in a single syscall if nessassary.
-            /// Accepts a Vec as an input rather than a const size array like `Self::join`
+            /// Accepts a Vec as an input rather than a const size array like [`Self::join`]
             ///
             /// # Errors
-            /// See `JoinErrorKind` docs.  Will return a `JoinError` containing the input `PagesType`s and a `JoinErrorKind`
+            /// See [`JoinErrorKind`] docs.  Will return a [`JoinError`] containing the input [`PagesType`]s and a [`JoinErrorKind`]
             /// containing what went wrong.
             pub fn join_vec(parts: Vec<PagesType>) -> Result<Self, JoinError<Vec<PagesType>>> {
                 let mut index: Vec<_> = (0..parts.len()).collect();
@@ -574,13 +579,14 @@ macro_rules! pages {
                 unsafe { self.allocation.ptr.add(self.start * mem::page_size()) }
             }
 
-            /// Converts a pages object into an `Allocation`.  If the only reference that still
-            /// exists to pages inside the allocation is through self, then this will succeed.
+            #[doc = concat!("Converts this [`", stringify!($Self), "`] into an [`Allocation`].")]
+            /// If the only reference that still exists to pages inside the allocation is through
+            /// `self`, then this will succeed.
             /// Other references can be removed by dropping other pages objects or by joining them
-            /// together through `Self::join` or `Self::join_vec`.
+            /// together through [`Self::join`] or [`Self::join_vec`].
             ///
             /// # Errors
-            /// Will return `Self` as an error if other references to the allocation still exist.
+            /// Will return [`Self`] as an error if other references to the allocation still exist.
             pub fn try_into_allocation(self) -> Result<Allocation, Self> {
                 Allocation::try_from(self)
             }
@@ -597,18 +603,17 @@ macro_rules! pages {
         }
 
         impl Allocation {
-            /// Converts this `Allocation` into a pages object with the correct protection
+            #[doc = concat!("Converts this [`Allocation`] into [`", stringify!($Self), "`]")]
             ///
             /// # Errors
-            /// Will error if protecting the pages fails, error object contains this `Allocation`.
+            /// Will error if protecting the pages fails, error object contains this [`Allocation`].
             pub fn $alloc_into(self) -> Result<$Self, IntoPagesError<Self>> {
                 $Self::try_from(self)
             }
         }
 
         impl $Other1 {
-            /// Converts this pages object into a different pages object with the correct
-            /// protection
+            #[doc = concat!("Converts this [`", stringify!($Self), "`] into [`", stringify!($Other1), "`], updating the protection of the underlying pages")]
             ///
             /// # Errors
             /// Will error if protecting the pages fails, error object contains self.
@@ -618,8 +623,7 @@ macro_rules! pages {
         }
 
         impl $Other2 {
-            /// Converts this pages object into a different pages object with the correct
-            /// protection
+            #[doc = concat!("Converts this [`", stringify!($Self), "`] into [`", stringify!($Other2), "`], updating the protection of the underlying pages")]
             ///
             /// # Errors
             /// Will error if protecting the pages fails, error object contains self.
@@ -800,7 +804,7 @@ macro_rules! slice_pages_impl {
 }
 
 impl MutPages {
-    /// Gets a mutable slice of the raw bytes of the pages represented by this `MutPages` object
+    /// Gets a mutable slice of the raw bytes of the pages represented by this [`MutPages`] object
     pub fn slice_mut(&mut self) -> &mut [u8] {
         // SAFETY:
         // - This method is only implemented for MutPages which allows reading & writing of
