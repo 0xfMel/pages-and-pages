@@ -6,7 +6,7 @@ description = "Allows control over a manually allocated region of page-aligned m
 repository = "https://github.com/0xfMel/pages-and-pages"
 license-file = "LICENSE"
 readme = "README.md"
-keywords = ["pages", "page", "memory", "allocation", "protect", "lock", "protection", "locking", "alloc", "malloc", "allocate"]
+keywords = ["page", "memory", "allocation", "protect", "lock"]
 categories = ["memory-management"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
