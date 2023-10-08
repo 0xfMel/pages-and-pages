@@ -1,6 +1,6 @@
 [package]
 name = "pages-and-pages"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Allows control over a manually allocated region of page-aligned memory with support for granular protection and locking of underlying pages"
 repository = "https://github.com/0xfMel/pages-and-pages"
