@@ -206,6 +206,8 @@ pub trait AnyPages: private::Sealed {
     fn as_any_mut(&mut self) -> &mut dyn Any;
     /// Gets this pages object as a [`PagesType`] enum to allow pattern matching and unwrapping on accessibility
     fn into_pages_type(self) -> PagesType;
+    /// Gets an immutable reference to the underlying [`Allocation`]
+    fn allocation(&self) -> &Allocation;
 
     /// Gets the number of pages this pages object references
     fn pages(&self) -> usize {
@@ -221,7 +223,7 @@ pub trait AnyPages: private::Sealed {
     /// Gets the underlying allocation as a [`PagesAllocation`] object.  This is for internal use only,
     /// [`PagesAllocation`] exposes no methods or fields
     #[doc(hidden)]
-    fn allocation(&self) -> private::PagesAllocation<'_>;
+    fn allocation_(&self) -> private::PagesAllocation<'_>;
 }
 
 impl dyn AnyPages {
@@ -338,6 +340,11 @@ impl Allocation {
         unsafe { mem::dealloc(self.ptr, self.pages * mem::page_size()) }?;
         self.ptr = ptr::null_mut();
         Ok(())
+    }
+
+    /// Gets the number of pages this allocation represents
+    pub const fn pages(&self) -> usize {
+        self.pages
     }
 }
 
@@ -464,7 +471,7 @@ macro_rules! pages {
                 let mut immutable = 0_usize;
                 let mut inaccessible = 0_usize;
 
-                let allocation = parts[first].allocation().allocation;
+                let allocation = parts[first].allocation_().allocation;
                 let start = parts[first].start();
                 let mut end = parts[first].end();
                 let first_accessibility = parts[first].accessibility();
@@ -482,7 +489,7 @@ macro_rules! pages {
                         return Err(JoinErrorKind::NonContiguous);
                     }
 
-                    if !Arc::ptr_eq(allocation, part.allocation().allocation) {
+                    if !Arc::ptr_eq(allocation, part.allocation_().allocation) {
                         return Err(JoinErrorKind::NonContiguous);
                     }
 
@@ -648,7 +655,11 @@ macro_rules! pages {
                 Accessibility::$Accessibility
             }
 
-            fn allocation(&self) -> $crate::private::PagesAllocation<'_> {
+            fn allocation(&self) -> &Allocation {
+                &*self.allocation
+            }
+
+            fn allocation_(&self) -> $crate::private::PagesAllocation<'_> {
                 $crate::private::PagesAllocation {
                     allocation: &self.allocation,
                 }
